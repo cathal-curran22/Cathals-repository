@@ -1,0 +1,37 @@
+```{r}
+dataset <- df %>%
+  mutate(GameWeek = row_number())
+ggplot(dataset, aes(x = GameWeek, y = Goals)) +
+  geom_line(color = "blue", size = 1) +
+  geom_point(color = "red", size = 2) +
+  labs(
+    title = "Manchester City's Goals Scored Over Time",
+    x = "Game Week",
+    y = "Goals Scored"
+  ) +
+  theme_minimal()
+ggplot(dataset, aes(x = GameWeek, y = Goals, color = Competition)) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  labs(
+    title = "Goals Scored Over Time by Competition",
+    x = "Game Week",
+    y = "Goals Scored",
+    color = "Competition"
+  ) +
+  theme_minimal()
+dataset <- dataset %>%
+  mutate(RollingGoals = rollmean(Goals, k = 3, fill = NA, align = "right"))
+
+ggplot(dataset, aes(x = GameWeek)) +
+  geom_line(aes(y = Goals), color = "blue", size = 1) +
+  geom_line(aes(y = RollingGoals), color = "red", linetype = "dashed", size = 1) +
+  labs(
+    title = "Goals Scored and Rolling Average Over Time",
+    x = "Game Week",
+    y = "Goals Scored"
+  ) +
+  theme_minimal()
+
+```
+
