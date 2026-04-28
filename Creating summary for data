@@ -29,3 +29,38 @@ plot(samples, density = FALSE, auto.layout = FALSE)
 plot(samples, trace = FALSE, auto.layout = FALSE)
 ```
 
+```{r}
+# Generate posterior predictive samples
+posterior_samples <- as.matrix(samples)
+
+# Compute predicted lambda for each iteration
+lambda_pred <- apply(posterior_samples, 1, function(params) {
+  beta0 <- params["beta0"]
+  beta1 <- params["beta1"]
+  beta2 <- params["beta2"]
+  beta3 <- params["beta3"]
+  beta4 <- params["beta4"]
+  beta5 <- params["beta5"]
+  beta6 <- params["beta6"]
+  beta7 <- params["beta7"]
+  
+  exp(beta0 + beta1 * df$comp_PL + beta2 * df$comp_CL +
+      beta3 * df$Rain + beta4 * df$Home + beta5 * df$last_res_w +
+      beta6 * df$last_res_d + beta7 * df$team_rank)
+})
+
+# Mean prediction for each observation
+lambda_mean_pred <- rowMeans(lambda_pred)
+
+# Calculate Total Sum of Squares (SS_tot)
+mean_goals <- mean(df$Goals)
+SST <- sum((df$Goals - mean_goals)^2)
+
+# Calculate Residual Sum of Squares (SS_res)
+SSR <- sum((df$Goals - lambda_mean_pred))
+
+# Bayesian R-squared
+R_squared <- 1 - (SSR / SST)
+print(paste("Bayesian R-squared:", R_squared))
+```
+
