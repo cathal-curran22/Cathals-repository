@@ -1,0 +1,31 @@
+```{r}
+# Define initial values
+inits <- function() 
+  {list(beta1 = 0, beta2 = 0, beta3 = 0, beta4 = 0, beta5 = 0, beta6 = 0, beta7 = 0, beta8 = 0)}
+
+# Parameters to monitor
+params <- c("beta0", "beta1", "beta2", "beta3", "beta4", "beta5", "beta6", "beta7", "beta8")
+
+# Run the model
+jags_model <- jags.model(textConnection(pr_model), jags_data, inits = inits, n.chains = 4, n.adapt = 1000)
+
+# Burn-in phase
+update(jags_model, 10000)
+
+# Sampling
+samples <- coda.samples(
+  model = jags_model, 
+  variable.names = params, 
+  n.iter = 10000
+)
+```
+
+```{r}
+# Summarize the results
+summary(samples)
+
+# Plot the posterior distributions
+plot(samples, density = FALSE, auto.layout = FALSE)
+plot(samples, trace = FALSE, auto.layout = FALSE)
+```
+
