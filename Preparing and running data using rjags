@@ -1,0 +1,45 @@
+```{r}
+last_year_mean <- log(150/60) #the log of last years total goals/the total number of matches (i.e. the average number of goals scored the season prior without considering all our contributing variables)
+
+
+pr_model <- "model {
+            # Likelihood
+            for (i in 1:N) {
+            goals[i] ~ dpois(lambda[i])
+            lambda[i] <-  exp(beta0 + beta1 * comp_CL[i] + beta2 * comp_FA[i] + 
+                              beta3 * comp_EFL[i] + beta4 * rain[i] + beta5 * home[i] + 
+                              beta6 * result_win[i] + beta7 * result_draw[i] +
+                              beta8 * team_rank[i])
+            }
+
+              # Priors for the other coefficients
+              beta0 ~ dnorm(0, 0.01)
+              beta1 ~ dnorm(0, 0.01)
+              beta2 ~ dnorm(0, 0.01)
+              beta3 ~ dnorm(-0.6, 2) #from the 19/20 season to the 22/23 season, City scored on average 2.6 goals per game in the PL and 2.0 in the EFL. Therefore, we expect a slight decrease in number of goals scored. However, this there is a lot of variance in this decrease
+              beta4 ~ dnorm(0, 0.01)
+              beta5 ~ dnorm(0, 0.01)
+              beta6 ~ dnorm(0, 0.01)
+              beta7 ~ dnorm(0, 0.01)
+              beta8 ~ dnorm(0, 0.01)
+            }"
+
+```
+
+```{r}
+# Prepare data for JAGS
+  jags_data <- list(
+  goals = df$Goals,
+  comp_CL = df$comp_CL,
+  comp_FA = df$comp_FA,
+  comp_EFL = df$comp_EFL,
+  rain = df$Rain,
+  home = df$Home,
+  result_win = df$last_res_w,
+  result_draw = df$last_res_d,
+  team_rank = df$team_rank,
+  log_last_year_mean = last_year_mean,
+  N = nrow(df)  # Number of observations
+)
+
+```
