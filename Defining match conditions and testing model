@@ -1,0 +1,169 @@
+```{r}
+# Define the match conditions for the next match: Vs Man United at home in the Premier League, with rain forecasted, and a loss in the previous match
+
+new_match <- list(
+  comp_EFL = 0,     # Premier League
+  comp_CL = 0,     # Not Champions League
+  comp_FA = 0,     # Not FA Cup
+  rain = 1,        # Rainy weather
+  home = 1,        # Home match
+  result_win = 0,  # Last match was not a win
+  result_draw = 0, # Last match was not a draw
+  team_rank = 0    # Opponent rank
+)
+
+# Extract posterior samples
+posterior_samples <- as.matrix(samples)
+
+# Calculate the linear predictor
+linear_predictor <- posterior_samples[, "beta0"] +
+  posterior_samples[, "beta1"] * new_match$comp_CL +
+  posterior_samples[, "beta2"] * new_match$comp_FA +
+  posterior_samples[, "beta3"] * new_match$comp_EFL +
+  posterior_samples[, "beta4"] * new_match$rain +
+  posterior_samples[, "beta5"] * new_match$home +
+  posterior_samples[, "beta6"] * new_match$result_win +
+  posterior_samples[, "beta7"] * new_match$result_draw +
+  posterior_samples[, "beta8"] * new_match$team_rank
+
+# Transform to Poisson rate (lambda)
+lambda <- exp(linear_predictor)
+
+# Generate posterior predictive samples for the number of goals
+predicted_goals <- rpois(length(lambda), lambda)
+prediction_summary <- table(predicted_goals)/length(predicted_goals)
+
+# Construct betting_summary with diagnostic checks
+betting_summary <- data.frame(
+  
+  Goals = as.numeric(names(prediction_summary)),
+  Probability = as.numeric(prediction_summary)
+)
+
+# Display betting summary
+ggplot(betting_summary, aes(x = Goals, y = prediction_summary)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(
+    title = "Predicted number of Goals Scored in the next match",
+    x = "Number of Goals",
+    y = "Probability"
+  ) +
+  theme_minimal()
+
+```
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(ggplot2)
+library(rjags)
+
+# Step 1: Load the dataset
+df <- read.csv("ManCityData.csv")
+
+# Step 2: Define the Bayesian model
+pr_model <- "model {
+  for (i in 1:N) {
+    goals[i] ~ dpois(lambda[i])
+    lambda[i] <- exp(beta0 + beta1 * comp_CL[i] + beta2 * comp_FA[i] + 
+                     beta3 * comp_EFL[i] + beta4 * rain[i] + beta5 * home[i] + 
+                     beta6 * result_win[i] + beta7 * result_draw[i] +
+                     beta8 * team_rank[i])
+  }
+  
+  beta0 ~ dnorm(0, 0.01)
+  beta1 ~ dnorm(0, 0.01)
+  beta2 ~ dnorm(0, 0.01)
+  beta3 ~ dnorm(-0.6, 2)
+  beta4 ~ dnorm(0, 0.01)
+  beta5 ~ dnorm(0, 0.01)
+  beta6 ~ dnorm(0, 0.01)
+  beta7 ~ dnorm(0, 0.01)
+  beta8 ~ dnorm(0, 0.01)
+}"
+
+# Step 3: Prepare data for JAGS
+jags_data <- list(
+  goals = df$Goals,
+  comp_CL = df$comp_CL,
+  comp_FA = df$comp_FA,
+  comp_EFL = df$comp_EFL,
+  rain = df$Rain,
+  home = df$Home,
+  result_win = df$last_res_w,
+  result_draw = df$last_res_d,
+  team_rank = df$team_rank,
+  N = nrow(df)
+)
+
+# Step 4: Define initial values and parameters to monitor
+inits <- function() {
+  list(beta0 = 0, beta1 = 0, beta2 = 0, beta3 = 0,
+       beta4 = 0, beta5 = 0, beta6 = 0, beta7 = 0, beta8 = 0)
+}
+params <- c("beta0", "beta1", "beta2", "beta3", "beta4", "beta5", "beta6", "beta7", "beta8")
+
+# Step 5: Run the JAGS model
+jags_model <- jags.model(textConnection(pr_model), data = jags_data, inits = inits, n.chains = 3, n.adapt = 1000)
+
+# Burn-in phase
+update(jags_model, 1000)
+
+# Sampling
+samples <- coda.samples(model = jags_model, variable.names = params, n.iter = 5000)
+
+# Step 6: Generate predictions
+posterior_samples <- as.matrix(samples)
+
+# Compute predicted lambda for each observation
+lambda_pred <- apply(posterior_samples, 1, function(params) {
+  beta0 <- params["beta0"]
+  beta1 <- params["beta1"]
+  beta2 <- params["beta2"]
+  beta3 <- params["beta3"]
+  beta4 <- params["beta4"]
+  beta5 <- params["beta5"]
+  beta6 <- params["beta6"]
+  beta7 <- params["beta7"]
+  beta8 <- params["beta8"]
+  
+  exp(beta0 + beta1 * df$comp_CL + beta2 * df$comp_FA +
+      beta3 * df$comp_EFL + beta4 * df$Rain + beta5 * df$Home +
+      beta6 * df$last_res_w + beta7 * df$last_res_d + beta8 * df$team_rank)
+})
+
+# Mean prediction for each observation
+df$PredictedGoals <- rowMeans(lambda_pred)
+
+# Step 7: Plot Actual vs. Predicted Goals
+ggplot(df, aes(x = Goals, y = PredictedGoals)) +
+  geom_point(color = "blue") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
+  labs(
+    title = "Actual vs Predicted Goals",
+    x = "Actual Goals",
+    y = "Predicted Goals"
+  ) +
+  theme_minimal()
+
+# Save updated dataset with predictions (optional)
+write.csv(df, "ManCityData_with_predictions.csv", row.names = FALSE)
+# Step 1: Add Game Week to the Dataset
+df <- df %>%
+  mutate(GameWeek = row_number())  # Assuming each row corresponds to a game week
+
+# Step 2: Create a Time-Series Plot for Actual vs. Predicted Goals
+ggplot(df, aes(x = GameWeek)) +
+  geom_line(aes(y = Goals, color = "Actual Goals"), size = 1.2) +
+  geom_line(aes(y = PredictedGoals, color = "Predicted Goals"), size = 1.2, linetype = "dashed") +
+  labs(
+    title = "Actual vs Predicted Goals Over Time",
+    x = "Game Week",
+    y = "Goals Scored",
+    color = "Legend"
+  ) +
+  theme_minimal() +
+  scale_color_manual(values = c("Actual Goals" = "blue", "Predicted Goals" = "red"))
+
+
+```
