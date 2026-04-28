@@ -1,0 +1,17 @@
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, echo = TRUE, fig.height=4)
+options(htmltools.dir.version = FALSE, scipen = 5)
+library(rjags)
+library(knitr)
+library(rjags)
+library(ggplot2)
+library(zoo)
+library(dplyr)
+```
+
+```{r}
+df <- read.csv("ManCityData.csv")
+
+# View first few rows
+head(df)
+```
